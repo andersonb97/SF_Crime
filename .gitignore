@@ -2,3 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+
+test.csv
+train.csv
+sampleSubmission.csv
