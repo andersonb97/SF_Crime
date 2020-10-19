@@ -7,5 +7,79 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(DataExplorer)
+library(ggplot2)
+library(ggmap)
 ```
+
+```{r}
+## read in data
+sf_train <- read_csv("train.csv") %>%
+  mutate(Category = as.factor(Category))
+
+sf_test <- read_csv("test.csv")
+
+sf <- bind_rows(train = sf_train, test = sf_test, .id = "Set")
+```
+
+
+```{r}
+plot_missing(sf)
+```
+
+
+HEATMAP
+```{r}
+## read in map image, created in supplemental script
+map <- readRDS("sf_map.rds", refhook = NULL)
+
+## select some crime categories to plot
+train_plot <- sf_train %>%
+  filter(Category == c("ARSON", "ASSAULT", "DISORDERLY CONDUCT",
+                       "KIDNAPPING", "VANDALISM", "VEHICLE THEFT"))
+
+ggmap(map) + 
+  stat_density2d(aes(x = X, y = Y, fill = ..level.., alpha = ..level..),
+                 bins = 15, geom = "polygon", data = top_10_offenses) +
+  scale_fill_gradient(low = "yellow", high = "red", name = "Crime\nDensity\nLevels") +
+  scale_alpha(range = c(0.25, 0.75), guide = FALSE)  +
+  facet_wrap(~Category, ncol = 4) + 
+  ggtitle("San Francisco Crimes Heatmap by Category")
+```
+
+```{r}
+levels(sf_train$Category)
+```
+
+```{r}
+## count number of occurrences in each crime category (not including other offenses)
+counts <- sf_train %>%
+  group_by(Category) %>%
+  summarize(counts = n()) %>%
+  arrange(desc(counts)) %>%
+  filter(Category != "OTHER OFFENSES") %>%
+  head(10)
+
+## inner join with train df to keep only the crimes that are in the top 10 df
+top_10_offenses <- sf_train %>%
+  inner_join(counts, by = "Category")
+
+## plot new df
+ggmap(map) +
+  geom_point(data = top_10_offenses, 
+             aes(X, Y, color = Category), alpha=0.1) +
+  guides(colour = guide_legend(override.aes = list(alpha=1.0, size=6.0),
+                               title = "Type of Crime")) +
+  scale_colour_brewer(type = "qual", palette = "Paired") + 
+  ggtitle("Top Crimes in San Francisco") +
+  theme_light(base_size = 20) +
+  theme(axis.line = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+```
+
 
